@@ -7,7 +7,7 @@ const { hideBin } = require('yargs/helpers')
 
 inquirer.registerPrompt("date", require("inquirer-date-prompt"));
 
-const argv = yargs(hideBin(process.argv)).argv
+const { argv } = yargs(hideBin(process.argv))
 
 const toggl = require('./toggl');
 
@@ -28,11 +28,14 @@ const prefs = new Preferences(appname, prefsInit);
 
 const report = async() => {
 
+	const [, fromValue, fromType] = defaultFrom.exec(prefs.toggl.from);
+	const fromParsed = moment().subtract(parseInt(fromValue), fromType);
 	const custom = {};
+
 	if(argv.range || argv.r) {
-		console.log('Format YYYY-MM-DD');
+		console.log('Format YYYY/MM/DD');
 		const { cFrom, cTo } = await inquirer.prompt([
-			{ name: 'cFrom', type: 'date', locale: 'zh-cn', message: 'Report from:', format: { year: 'numeric', month: '2-digit', day: '2-digit', hour: undefined, minute: undefined } },
+			{ name: 'cFrom', type: 'date', locale: 'zh-cn', message: 'Report from:', format: { year: 'numeric', month: '2-digit', day: '2-digit', hour: undefined, minute: undefined }, default: fromParsed.toDate() },
 			{ name: 'cTo', type: 'date', locale: 'zh-cn', message: 'Report to:', format: { year: 'numeric', month: '2-digit', day: '2-digit', hour: undefined, minute: undefined } }
 		]);
 
@@ -42,13 +45,10 @@ const report = async() => {
 		custom.to = isCorrect ? cTo : cFrom;
 	}
 
-
-	const [, fromValue, fromType] = defaultFrom.exec(prefs.toggl.from);
-
 	return {
 		...prefs,
 		report: {
-			from: (custom.from ? moment(custom.from) : moment().subtract(parseInt(fromValue), fromType)).format('YYYY-MM-DD'),
+			from: (custom.from ? moment(custom.from) : fromParsed).format('YYYY-MM-DD'),
 			to: (custom.to ? moment(custom.to) : moment()).format('YYYY-MM-DD')
 		}
 	}
