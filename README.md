@@ -14,6 +14,6 @@ npx toggl-tempo
 
 ### Options:
 ```sh
---reset, -r     reset account information
---custom, -c    use a custom date range
+--configure, -c     update configuration
+--range, -r   		use a custom date range
 ```

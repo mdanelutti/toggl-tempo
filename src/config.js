@@ -26,16 +26,10 @@ const prefsInit = {
 const appname = 'com.toggl-tempo';
 const prefs = new Preferences(appname, prefsInit);
 
-if(argv.reset || argv.r) {
-	prefs.atlassian = prefsInit.atlassian;
-	prefs.tempo = prefsInit.tempo;
-	prefs.toggl = prefsInit.toggl;
-}
-
 const report = async() => {
 
 	const custom = {};
-	if(argv.custom || argv.c) {
+	if(argv.range || argv.r) {
 		console.log('Format YYYY-MM-DD');
 		const { cFrom, cTo } = await inquirer.prompt([
 			{ name: 'cFrom', type: 'date', locale: 'zh-cn', message: 'Report from:', format: { year: 'numeric', month: '2-digit', day: '2-digit', hour: undefined, minute: undefined } },
@@ -62,12 +56,12 @@ const report = async() => {
 
 module.exports.init = async() => {
 
-	if(prefs.tempo.token && prefs.toggl.token)
+	if(prefs.tempo.token && prefs.toggl.token && !argv.configure && !argv.c)
 		return report();
 
 	console.log('See in https://track.toggl.com/profile -> API Token')
 	const { tToken } = await inquirer.prompt([
-		{ name: 'tToken', type: 'input', message: 'Toggl token:' }
+		{ name: 'tToken', type: (prefs.toggl.token ? 'password' : 'input'), message: 'Toggl token:', default: prefs.toggl.token }
 	]);
 
 	const togglUser = await toggl.getUser(tToken);
@@ -89,12 +83,12 @@ module.exports.init = async() => {
 	}, 3000)
 
 	const { atlassianAccountId } = await inquirer.prompt([
-		{ name: 'atlassianAccountId', type: 'input', message: 'Your Atlassian account ID:' }
+		{ name: 'atlassianAccountId', type: 'input', message: 'Your Atlassian account ID:', default: prefs.tempo.workderId }
 	]);
 
 	console.log(`See in https://${domain}.atlassian.net/plugins/servlet/ac/io.tempo.jira/tempo-app#!/configuration/api-integration`)
 	const { tempoToken, from } = await inquirer.prompt([
-		{ name: 'tempoToken', type: 'input', message: 'Tempo token:' },
+		{ name: 'tempoToken', type: (prefs.tempo.token ? 'password' : 'input'), message: 'Tempo token:', default: prefs.tempo.token },
 		{ name: 'from', type: 'rawlist', message: 'Default report from:', default: '2w', choices: [
 			{ name: '1 day', value: '1d' },
 			{ name: '2 days', value:'2d' },

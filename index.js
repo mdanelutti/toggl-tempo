@@ -12,6 +12,6 @@ const process = async() => {
 };
 
 if(require.main === module)
-    process();
+	process();
 
 module.exports = { process };
