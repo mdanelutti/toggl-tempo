@@ -1,0 +1,22 @@
+{
+  "name": "toggl-tempo",
+  "version": "1.0.0",
+  "description": "Send your toggl report to Jira tempo",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Max",
+  "license": "ISC",
+  "bin": "index.js",
+  "dependencies": {
+    "@fast-csv/parse": "^4.3.6",
+    "axios": "^0.24.0",
+    "inquirer": "^8.2.0",
+    "inquirer-date-prompt": "^2.0.1",
+    "moment": "^2.29.1",
+    "open": "^8.4.0",
+    "preferences": "^2.0.2",
+    "yargs": "^17.3.1"
+  }
+}
