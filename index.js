@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 require('./src/helpers');
 const toggl = require('./src/toggl');
 const tempo = require('./src/tempo');
