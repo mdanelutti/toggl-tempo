@@ -111,5 +111,8 @@ module.exports.init = async() => {
 	prefs.toggl.email = email;
 	prefs.toggl.workSpaceId = togglWorkSpace;
 
+	if(argv.configure || argv.c)
+		return;
+
 	return getReportRange();
 }
