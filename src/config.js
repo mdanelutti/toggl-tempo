@@ -1,7 +1,7 @@
 const inquirer = require('inquirer');
 const Preferences = require("preferences");
 const open = require('open');
-const moment = require('moment');
+const { format, sub } = require('date-fns');
 const yargs = require('yargs/yargs')
 const { hideBin } = require('yargs/helpers')
 
@@ -11,31 +11,28 @@ const { argv } = yargs(hideBin(process.argv))
 
 const toggl = require('./toggl');
 
-const defaultFrom = /([0-9+]+)([a-z])/i
-
 const prefsInit = {
 	atlassian: {
 		domain: 'fizzmod'
 	},
 	tempo: {},
 	toggl: {
-		from: '2w'
+		from: '{ "weeks": 2 }'
 	}
 };
 
 const appname = 'com.toggl-tempo';
 const prefs = new Preferences(appname, prefsInit);
 
-const report = async() => {
+const getReportRange = async() => {
 
-	const [, fromValue, fromType] = defaultFrom.exec(prefs.toggl.from);
-	const fromParsed = moment().subtract(parseInt(fromValue), fromType);
+	const fromDate = sub(new Date(), JSON.parse(prefs.toggl.from));
 	const custom = {};
 
 	if(argv.range || argv.r) {
 		console.log('Format YYYY/MM/DD');
 		const { cFrom, cTo } = await inquirer.prompt([
-			{ name: 'cFrom', type: 'date', locale: 'zh-cn', message: 'Report from:', format: { year: 'numeric', month: '2-digit', day: '2-digit', hour: undefined, minute: undefined }, default: fromParsed.toDate() },
+			{ name: 'cFrom', type: 'date', locale: 'zh-cn', message: 'Report from:', format: { year: 'numeric', month: '2-digit', day: '2-digit', hour: undefined, minute: undefined }, default: fromDate },
 			{ name: 'cTo', type: 'date', locale: 'zh-cn', message: 'Report to:', format: { year: 'numeric', month: '2-digit', day: '2-digit', hour: undefined, minute: undefined } }
 		]);
 
@@ -48,8 +45,8 @@ const report = async() => {
 	return {
 		...prefs,
 		report: {
-			from: (custom.from ? moment(custom.from) : fromParsed).format('YYYY-MM-DD'),
-			to: (custom.to ? moment(custom.to) : moment()).format('YYYY-MM-DD')
+			from: format(custom.from || fromDate, 'yyyy-MM-dd'),
+			to: format(custom.to || new Date(), 'yyyy-MM-dd')
 		}
 	}
 }
@@ -57,7 +54,7 @@ const report = async() => {
 module.exports.init = async() => {
 
 	if(prefs.tempo.token && prefs.toggl.token && !argv.configure && !argv.c)
-		return report();
+		return getReportRange();
 
 	console.log('See in https://track.toggl.com/profile -> API Token')
 	const { tToken } = await inquirer.prompt([
@@ -89,19 +86,19 @@ module.exports.init = async() => {
 	console.log(`See in https://${domain}.atlassian.net/plugins/servlet/ac/io.tempo.jira/tempo-app#!/configuration/api-integration`)
 	const { tempoToken, from } = await inquirer.prompt([
 		{ name: 'tempoToken', type: (prefs.tempo.token ? 'password' : 'input'), message: 'Tempo token:', default: prefs.tempo.token },
-		{ name: 'from', type: 'rawlist', message: 'Default report from:', default: '2w', choices: [
-			{ name: '1 day', value: '1d' },
-			{ name: '2 days', value:'2d' },
-			{ name: '3 days', value:'3d' },
-			{ name: '4 days', value:'4d' },
-			{ name: '5 days', value:'5d' },
-			{ name: '6 days', value:'6d' },
+		{ name: 'from', type: 'rawlist', message: 'Default report from:', default: prefs.toggl.from, choices: [
+			{ name: '1 day', value: '{ "days": 1 }' },
+			{ name: '2 days', value: '{ "days": 2 }' },
+			{ name: '3 days', value: '{ "days": 3 }' },
+			{ name: '4 days', value: '{ "days": 4 }' },
+			{ name: '5 days', value: '{ "days": 5 }' },
+			{ name: '6 days', value: '{ "days": 6 }' },
 			new inquirer.Separator(),
-			{ name: '1 week', value: '1w' },
-			{ name: '2 weeks', value: '2w' },
-			{ name: '3 weeks', value: '3w' },
+			{ name: '1 week', value: '{ "weeks": 1 }' },
+			{ name: '2 weeks', value: '{ "weeks": 2 }' },
+			{ name: '3 weeks', value: '{ "weeks": 3 }' },
 			new inquirer.Separator(),
-			{ name: '1 month', value: '1M' },
+			{ name: '1 month', value: '{ "months": 1 }' },
 			new inquirer.Separator()
 		]}
 	]);
@@ -114,5 +111,5 @@ module.exports.init = async() => {
 	prefs.toggl.email = email;
 	prefs.toggl.workSpaceId = togglWorkSpace;
 
-	return report();
+	return getReportRange();
 }

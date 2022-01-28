@@ -12,9 +12,9 @@
   "dependencies": {
     "@fast-csv/parse": "^4.3.6",
     "axios": "^0.24.0",
+    "date-fns": "^2.28.0",
     "inquirer": "^8.2.0",
     "inquirer-date-prompt": "^2.0.1",
-    "moment": "^2.29.1",
     "open": "^8.4.0",
     "preferences": "^2.0.2",
     "yargs": "^17.3.1"

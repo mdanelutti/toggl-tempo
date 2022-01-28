@@ -1,5 +1,5 @@
 const axios = require('axios');
-const moment = require('moment');
+const { format, parseISO, sub, add } = require('date-fns');
 
 const ticket = /[a-z0-9]+\-[0-9]+ /i;
 
@@ -23,8 +23,8 @@ const formatRow = row => {
 		description: isPR ? 'Revisión de PR' : desc,
 		rawDescription: isPR ? row.description.replace(' PR', ' Revisión de PR') : row.description,
 		time,
-		date: moment(row.start).format('YYYY-MM-DD'),
-		hour: moment(row.start).format('HH:mm:00')
+		date: format(parseISO(row.start), 'yyyy-MM-dd'),
+		hour: format(parseISO(row.start), 'HH:mm:00')
 	};
 };
 
@@ -49,8 +49,8 @@ const generateTimesheet = (pages, from, to) => {
 			addRowToTimeSheet(row)
 		});
 
-	delete timesSheets[moment(from).subtract(1, 'days').format('YYYY-MM-DD')];
-	delete timesSheets[moment(to).add(1, 'days').format('YYYY-MM-DD')];
+	delete timesSheets[format(sub(parseISO(from), { days: 1 }), 'yyyy-MM-dd')];
+	delete timesSheets[format(add(parseISO(to), { days: 1 }), 'yyyy-MM-dd')];
 
 	return timesSheets;
 }
@@ -70,12 +70,13 @@ module.exports.getUser = async(apiToken) => {
 };
 
 const getPage = async(config, from, to, page = 1) => {
+
 	const res = await axios.get('https://api.track.toggl.com/reports/api/v2/details', {
 		params: {
 			user_agent: config.email,
 			workspace_id: config.workSpaceId,
 			since: from,
-			until: moment(to).add(1, 'days').format('YYYY-MM-DD'),
+			until: format(add(parseISO(to), { days: 1 }), 'yyyy-MM-dd'),
 			order_desc: 'off',
 			page
 		},
