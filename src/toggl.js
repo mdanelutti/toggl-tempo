@@ -23,6 +23,7 @@ const formatRow = row => {
 		description: isPR ? 'Revisión de PR' : desc,
 		rawDescription: isPR ? row.description.replace(' PR', ' Revisión de PR') : row.description,
 		time,
+		tags: row.tags,
 		date: format(parseISO(row.start), 'yyyy-MM-dd'),
 		hour: format(parseISO(row.start), 'HH:mm:00')
 	};

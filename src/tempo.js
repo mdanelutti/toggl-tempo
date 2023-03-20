@@ -9,11 +9,14 @@ const report = {
 const totals = {
 	success: 0,
 	ommited: 0,
-	error: 0
+	error: 0,
+	tags: {}
 };
 
 const getServiceReport = async(account, from, to) => {
+
 	const url = `https://api.tempo.io/core/3/worklogs/user/${account.workderId}`
+
 	const res = await axios.get(url, {
 		headers: {
 			'Authorization': `Bearer ${account.token}`
@@ -98,6 +101,16 @@ module.exports.sendTimesSheets = async(timesSheets, { tempo: account, report: { 
 	for await (day of Object.keys(timesSheets)) {
 		console.log(`---------${day}---------`)
 		for await (worklog of Object.values(timesSheets[day])) {
+
+			if(worklog.tags) {
+				worklog.tags.forEach(tag => {
+					if(!totals.tags[tag])
+						totals.tags[tag] = 0;
+
+					totals.tags[tag] += worklog.time;
+				});
+			}
+
 			if(!worklog.ticket) {
 				totals.ommited += worklog.time;
 				console.log(`Omitted: ${worklog.description} | ${secondsToHs(worklog.time)} Hs`)
@@ -126,6 +139,16 @@ module.exports.sendTimesSheets = async(timesSheets, { tempo: account, report: { 
 	console.log(`ommited: ${secondsToHs(totals.ommited)} Hs`);
 	console.log(`error: ${secondsToHs(totals.error)} Hs`);
 
+	const totalHours = secondsToHs(totals.success + totals.ommited + totals.error);
+
 	if(Object.values(report.apiError).length)
 		console.log(`apiError: ${JSON.stringify(report.apiError, null, 2)}`);
+
+	if(Object.keys(totals.tags).length) {
+		console.log('')
+		console.log('Report by Tags')
+		Object.entries(totals.tags).forEach(([tag, seconds]) => {
+			console.log(`${tag}: ${(secondsToHs(seconds) / totalHours * 100).toFixed(2)} %`);
+		})
+	}
 };
