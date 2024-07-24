@@ -47,19 +47,25 @@ const getServiceReport = async(account, from, to) => {
 const secondsToHs = seconds => (seconds / 60 / 60);
 
 const publishWorklog = async(account, worklog, tempoWorklog) => {
+
 	const body = {
 		issueKey: worklog.ticket,
 		timeSpentSeconds: worklog.time,
 		startDate: worklog.date,
 		startTime: worklog.hour,
 		description: worklog.description,
-		authorAccountId: account.workderId
+		authorAccountId: account.workderId,
+		attributes: [{
+				key: '_Tipotarea_',
+				value: 'CodeReview'
+		}]
 	};
 
 	const url = `https://api.tempo.io/core/3/worklogs/${worklog.id || ''}`;
 	const method = worklog.id ? 'put' : 'post';
 
 	try {
+
 		await axios[method](url, body, {
 			headers: {
 				'Authorization': `Bearer ${account.token}`

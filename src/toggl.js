@@ -57,7 +57,7 @@ const generateTimesheet = (pages, from, to) => {
 }
 
 module.exports.getUser = async(apiToken) => {
-	const res = await axios.get('https://api.track.toggl.com/api/v8/me', {
+	const res = await axios.get('https://api.track.toggl.com/api/v9/me', {
 		auth: {
 			username: apiToken,
 			password: 'api_token'
@@ -65,8 +65,8 @@ module.exports.getUser = async(apiToken) => {
 	});
 
 	return {
-		email: res.data.data.email,
-		workSpaceId: res.data.data.default_wid
+		email: res.data.email,
+		workSpaceId: res.data.default_workspace_id
 	};
 };
 
