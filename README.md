@@ -4,7 +4,7 @@ Send your toggl report to Jira tempo
 
 ## Installation
 ```sh
-npm install toggl-tempo
+npm install -g toggl-tempo
 ```
 
 ## Usage
