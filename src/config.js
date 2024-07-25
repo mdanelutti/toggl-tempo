@@ -54,7 +54,7 @@ const getReportRange = async() => {
 
 module.exports.init = async() => {
 
-	if(prefs.tempo.token && prefs.tempo.requiredAttributes && prefs.toggl.token && !argv.configure && !argv.c)
+	if(prefs.tempo.token && prefs.tempo.hasOwnProperty('requiredAttributes') && prefs.toggl.token && !argv.configure && !argv.c)
 		return getReportRange();
 
 	console.log('See in https://track.toggl.com/profile -> API Token')
@@ -90,7 +90,7 @@ module.exports.init = async() => {
 	]);
 
 	console.log('Obtaining mandatory attributes from tempo');
-	const requiredAttributes = await getRequiredWorkAttributes(domain, tempoToken);
+	const requiredAttributes = await getRequiredWorkAttributes(tempoToken);
 
 	let togglDefaultTag;
 

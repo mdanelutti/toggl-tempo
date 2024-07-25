@@ -13,7 +13,7 @@ const totals = {
 	tags: {}
 };
 
-module.exports.getRequiredWorkAttributes = async(domain, tempoToken) => {
+module.exports.getRequiredWorkAttributes = async tempoToken => {
 
 	const url = 'https://api.tempo.io/core/3/work-attributes/'
 
@@ -36,7 +36,7 @@ module.exports.getRequiredWorkAttributes = async(domain, tempoToken) => {
 			requiredAttributes[`${name}/${names[keyName]}`] = { key, value: keyName };
 	}
 
-	return requiredAttributes;
+	return Object.keys(requiredAttributes).length ? requiredAttributes : null;
 };
 
 const getServiceReport = async(account, from, to) => {
@@ -79,7 +79,7 @@ const getServiceReport = async(account, from, to) => {
 
 const secondsToHs = seconds => (seconds / 60 / 60);
 
-const publishWorklog = async(account, worklog, tempoWorklog) => {
+const publishWorklog = async(tempo, worklog, tempoWorklog) => {
 
 	const body = {
 		issueKey: worklog.ticket,
@@ -87,8 +87,8 @@ const publishWorklog = async(account, worklog, tempoWorklog) => {
 		startDate: worklog.date,
 		startTime: worklog.hour,
 		description: worklog.description,
-		authorAccountId: account.workderId,
-		attributes: Object.values(worklog.attributes || tempoWorklog.attributes)
+		authorAccountId: tempo.workderId,
+		...(tempo.requiredAttributes || worklog.attributes || tempoWorklog.attributes) && { attributes: Object.values(worklog.attributes || tempoWorklog.attributes) }
 	};
 
 	const url = `https://api.tempo.io/core/3/worklogs/${worklog.id || ''}`;
@@ -98,7 +98,7 @@ const publishWorklog = async(account, worklog, tempoWorklog) => {
 
 		await axios[method](url, body, {
 			headers: {
-				'Authorization': `Bearer ${account.token}`
+				'Authorization': `Bearer ${tempo.token}`
 			}
 		});
 
@@ -161,7 +161,7 @@ module.exports.sendTimesSheets = async(timesSheets, { tempo, report: { from, to 
 					worklog.attributes = { [tempo.requiredAttributes[defaultTag].key]: tempo.requiredAttributes[defaultTag] };
 				}
 
-				if(!worklog.attributes && worklog.tags) {
+				if(!worklog.attributes && worklog.tags && tempo.requiredAttributes) {
 					worklog.tags.forEach(tag => {
 
 						const attribute = tempo.requiredAttributes[tag];
