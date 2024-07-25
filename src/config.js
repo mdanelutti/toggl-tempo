@@ -10,10 +10,11 @@ inquirer.registerPrompt("date", require("inquirer-date-prompt"));
 const { argv } = yargs(hideBin(process.argv))
 
 const toggl = require('./toggl');
+const { getRequiredWorkAttributes } = require('./tempo');
 
 const prefsInit = {
 	atlassian: {
-		domain: 'fizzmod'
+		domain: 'janiscommerce'
 	},
 	tempo: {},
 	toggl: {
@@ -53,7 +54,7 @@ const getReportRange = async() => {
 
 module.exports.init = async() => {
 
-	if(prefs.tempo.token && prefs.toggl.token && !argv.configure && !argv.c)
+	if(prefs.tempo.token && prefs.tempo.requiredAttributes && prefs.toggl.token && !argv.configure && !argv.c)
 		return getReportRange();
 
 	console.log('See in https://track.toggl.com/profile -> API Token')
@@ -69,7 +70,7 @@ module.exports.init = async() => {
 	]);
 
 	const { domain } = await inquirer.prompt([
-		{ name: 'domain', type: 'input', message: 'Atlassian domain:', default: 'fizzmod' }
+		{ name: 'domain', type: 'input', message: 'Atlassian domain:', default: 'janiscommerce' }
 	]);
 
 	console.log('Your browser will be opened in 3 seconds');
@@ -83,9 +84,52 @@ module.exports.init = async() => {
 		{ name: 'atlassianAccountId', type: 'input', message: 'Your Atlassian account ID:', default: prefs.tempo.workderId }
 	]);
 
-	console.log(`See in https://${domain}.atlassian.net/plugins/servlet/ac/io.tempo.jira/tempo-app#!/configuration/api-integration`)
-	const { tempoToken, from } = await inquirer.prompt([
-		{ name: 'tempoToken', type: (prefs.tempo.token ? 'password' : 'input'), message: 'Tempo token:', default: prefs.tempo.token },
+	console.log(`See in https://${domain}.atlassian.net/plugins/servlet/ac/io.tempo.jira/tempo-app#!/configuration/api-integration`);
+	const { tempoToken } = await inquirer.prompt([
+		{ name: 'tempoToken', type: (prefs.tempo.token ? 'password' : 'input'), message: 'Tempo token:', default: prefs.tempo.token }
+	]);
+
+	console.log('Obtaining mandatory attributes from tempo');
+	const requiredAttributes = await getRequiredWorkAttributes(domain, tempoToken);
+
+	let togglDefaultTag;
+
+	if(!requiredAttributes)
+		console.log('Tempo has no mandatory attributes');
+	else {
+
+		const existingTags = await toggl.getTags(tToken, togglWorkSpace);
+
+		const pendingTags = [];
+
+		const requiredTags = Object.keys(requiredAttributes);
+
+		for(const requiredTag of requiredTags) {
+			if(!existingTags[requiredTag])
+				pendingTags.push(requiredTag);
+		}
+
+		if(pendingTags.length) {
+			const { importTags } = await inquirer.prompt([
+				{ name: 'importTags', type: 'confirm', message: 'Tempo has mandatory attributes, authorize to synchronize these tags in Toggl?', default: true }
+			]);
+
+			if(!importTags) {
+				console.log('Sorry, you cannot continue');
+				return;
+			}
+
+			await toggl.createTags(tToken, togglWorkSpace, pendingTags);
+		}
+
+		console.log('The tags were synchronized');
+
+		({ togglDefaultTag } = await inquirer.prompt([
+			{ name: 'togglDefaultTag', type: 'rawlist', message: 'Selects a default tag for tickets that do not have a tag:', default: prefs.toggl.defaultTag, choices: requiredTags.map(requiredTag => ({ name: requiredTag, value: requiredTag}))}
+		]));
+	}
+
+	const { from } = await inquirer.prompt([
 		{ name: 'from', type: 'rawlist', message: 'Default report from:', default: prefs.toggl.from, choices: [
 			{ name: '1 day', value: '{ "days": 1 }' },
 			{ name: '2 days', value: '{ "days": 2 }' },
@@ -106,10 +150,14 @@ module.exports.init = async() => {
 	prefs.atlassian.domain = domain;
 	prefs.tempo.token = tempoToken;
 	prefs.tempo.workderId = atlassianAccountId;
+	prefs.tempo.requiredAttributes = requiredAttributes;
 	prefs.toggl.token = tToken;
 	prefs.toggl.from = from;
 	prefs.toggl.email = email;
 	prefs.toggl.workSpaceId = togglWorkSpace;
+
+	if(togglDefaultTag)
+		prefs.toggl.defaultTag = togglDefaultTag;
 
 	if(argv.configure || argv.c)
 		return;

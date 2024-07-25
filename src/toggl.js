@@ -105,3 +105,35 @@ module.exports.getReport = async({ toggl: config, report: { from, to } }) => {
 
 	return generateTimesheet(pages, from, to);
 }
+
+module.exports.getTags = async (apiToken, workSpaceId) => {
+
+	const res = await axios.get(`https://api.track.toggl.com/api/v9/workspaces/${workSpaceId}/tags`, {
+		auth: {
+			username: apiToken,
+			password: 'api_token'
+		}
+	});
+
+	const tagsByName = {};
+
+	for(const tag of res.data)
+		tagsByName[tag.name] = tag;
+
+	return tagsByName;
+};
+
+module.exports.createTags = (apiToken, workSpaceId, newTags) => {
+
+	return Promise.all(newTags.map(tag => {
+		return axios.post(`https://api.track.toggl.com/api/v9/workspaces/${workSpaceId}/tags`, {
+			name: tag,
+			workspace_id: workSpaceId
+		},{
+			auth: {
+				username: apiToken,
+				password: 'api_token'
+			}
+		});
+	}))
+};

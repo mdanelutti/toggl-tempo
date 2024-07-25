@@ -13,6 +13,32 @@ const totals = {
 	tags: {}
 };
 
+module.exports.getRequiredWorkAttributes = async(domain, tempoToken) => {
+
+	const url = 'https://api.tempo.io/core/3/work-attributes/'
+
+	const res = await axios.get(url, {
+		headers: {
+			'Authorization': `Bearer ${tempoToken}`
+		}
+	});
+
+	const requiredAttributes = {};
+
+	for(const {key, name, required, names } of res.data.results) {
+
+		if(!required)
+			continue;
+
+		const keyNames = Object.keys(names);
+
+		for(const keyName of keyNames)
+			requiredAttributes[`${name}/${names[keyName]}`] = { key, value: keyName };
+	}
+
+	return requiredAttributes;
+};
+
 const getServiceReport = async(account, from, to) => {
 
 	const url = `https://api.tempo.io/core/3/worklogs/user/${account.workderId}`
@@ -32,12 +58,19 @@ const getServiceReport = async(account, from, to) => {
 		return {};
 
 	return res.data.results.reduce((accum, data) => {
+
 		if(!accum[data.startDate])
 			accum[data.startDate] = {};
 
 		accum[data.startDate][`${data.issue.key} ${data.description}`] = {
 			id: data.tempoWorklogId,
-			time: data.timeSpentSeconds
+			time: data.timeSpentSeconds,
+			...data.attributes?.values?.length && {
+				attributes: data.attributes.values.reduce((accum, attr) => {
+					accum[attr.key] = attr;
+					return accum;
+				}, {})
+			}
 		};
 
 		return accum;
@@ -55,10 +88,7 @@ const publishWorklog = async(account, worklog, tempoWorklog) => {
 		startTime: worklog.hour,
 		description: worklog.description,
 		authorAccountId: account.workderId,
-		attributes: [{
-				key: '_Tipotarea_',
-				value: 'CodeReview'
-		}]
+		attributes: Object.values(worklog.attributes || tempoWorklog.attributes)
 	};
 
 	const url = `https://api.tempo.io/core/3/worklogs/${worklog.id || ''}`;
@@ -72,7 +102,7 @@ const publishWorklog = async(account, worklog, tempoWorklog) => {
 			}
 		});
 
-		console.log(`${worklog.id ? 'Updated' : 'Created'}: ${worklog.ticket} | ${worklog.description} | ${worklog.id ? `Change: ${secondsToHs(tempoWorklog.time)} ->` : ''} ${secondsToHs(worklog.time)} Hs`)
+		console.log(`${worklog.id ? 'Updated' : 'Created'}: ${worklog.ticket} | ${worklog.description} | ${worklog.id && tempoWorklog.time !== worklog.time ? `Change: ${secondsToHs(tempoWorklog.time)} ->` : ''} ${secondsToHs(worklog.time)} Hs${worklog.id && worklog.attributes ? ' | Attributes updated': ''}`)
 
 		totals.success += worklog.time;
 		report.success++;
@@ -97,12 +127,12 @@ const publishWorklog = async(account, worklog, tempoWorklog) => {
 	}
 };
 
-module.exports.sendTimesSheets = async(timesSheets, { tempo: account, report: { from, to } }) => {
+module.exports.sendTimesSheets = async(timesSheets, { tempo, report: { from, to }, toggl: { defaultTag} }) => {
 
 	if(!Object.keys(timesSheets))
 		return;
 
-	const tempoReport = await getServiceReport(account, from, to);
+	const tempoReport = await getServiceReport(tempo, from, to);
 
 	for await (day of Object.keys(timesSheets)) {
 		console.log(`---------${day}---------`)
@@ -126,16 +156,58 @@ module.exports.sendTimesSheets = async(timesSheets, { tempo: account, report: { 
 			const tempoWorklog = tempoReport[worklog.date]?.[worklog.rawDescription];
 
 			if(tempoWorklog) {
-				if(tempoWorklog.time === worklog.time) {
+
+				if(!worklog.tags && !tempoWorklog.attributes.length && defaultTag) {
+					worklog.attributes = { [tempo.requiredAttributes[defaultTag].key]: tempo.requiredAttributes[defaultTag] };
+				}
+
+				if(!worklog.attributes && worklog.tags) {
+					worklog.tags.forEach(tag => {
+
+						const attribute = tempo.requiredAttributes[tag];
+
+						if(!attribute)
+							return;
+
+						console.log(1, tempoWorklog.attributes?.[attribute.key]?.value, attribute.value);
+
+						if(tempoWorklog.attributes?.[attribute.key]?.value !== attribute.value) {
+							if(!worklog.attributes)
+								worklog.attributes = tempoWorklog.attributes || {}
+
+							worklog.attributes[attribute.key] = attribute;
+						}
+					});
+				}
+
+				if(!worklog.attributes && tempoWorklog.time === worklog.time) {
 					totals.ommited += worklog.time;
 					console.log(`Omitted without updates: ${worklog.ticket} | ${worklog.description} | ${secondsToHs(worklog.time)} Hs`);
 					continue;
 				}
 
 				worklog.id = tempoWorklog.id
+			} else {
+				if(defaultTag) {
+					if(!worklog.tags?.length) {
+						worklog.attributes = { [tempo.requiredAttributes[defaultTag].key]: tempo.requiredAttributes[defaultTag] };
+					} else {
+						worklog.tags.forEach(tag => {
+
+							const attribute = tempo.requiredAttributes[tag];
+
+							if(attribute) {
+								if(!worklog.attributes)
+									worklog.attributes = {}
+
+								worklog.attributes[attribute.key] = attribute;
+							}
+						});
+					}
+				}
 			}
 
-			await publishWorklog(account, worklog, tempoWorklog);
+			await publishWorklog(tempo, worklog, tempoWorklog);
 		}
 		console.log('----------------------------')
 		console.log('')
