@@ -169,8 +169,6 @@ module.exports.sendTimesSheets = async(timesSheets, { tempo, report: { from, to 
 						if(!attribute)
 							return;
 
-						console.log(1, tempoWorklog.attributes?.[attribute.key]?.value, attribute.value);
-
 						if(tempoWorklog.attributes?.[attribute.key]?.value !== attribute.value) {
 							if(!worklog.attributes)
 								worklog.attributes = tempoWorklog.attributes || {}
