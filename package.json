@@ -1,6 +1,6 @@
 {
   "name": "toggl-tempo",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "description": "Send your toggl report to Jira tempo",
   "main": "index.js",
   "scripts": {
