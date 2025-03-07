@@ -165,14 +165,12 @@ module.exports.sendTimesSheets = async(timesSheets, { tempo, report: { from, to 
 		console.log(`---------${day}---------`)
 		for await (worklog of Object.values(timesSheets[day])) {
 
-			if(worklog.tags) {
-				worklog.tags.forEach(tag => {
-					if(!totals.tags[tag])
-						totals.tags[tag] = 0;
+			(worklog.tags?.length ? worklog.tags : [defaultTag]).forEach(tag => {
+				if(!totals.tags[tag])
+					totals.tags[tag] = 0;
 
-					totals.tags[tag] += worklog.time;
-				});
-			}
+				totals.tags[tag] += worklog.time;
+			});
 
 			if(!worklog.ticket) {
 				totals.ommited += worklog.time;
