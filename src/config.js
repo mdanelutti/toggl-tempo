@@ -65,12 +65,27 @@ module.exports.init = async() => {
 	const togglUser = await toggl.getUser(tToken);
 
 	const { email, togglWorkSpace } = await inquirer.prompt([
-		{ name: 'email', type: 'input', message: 'Your email:', default: togglUser.email },
+		{ name: 'email', type: 'input', message: 'Your toggl email:', default: togglUser.email },
 		{ name: 'togglWorkSpace', type: 'input', message: 'Toggl work space ID:', default: togglUser.workSpaceId }
 	]);
 
 	const { domain } = await inquirer.prompt([
 		{ name: 'domain', type: 'input', message: 'Atlassian domain:', default: 'janiscommerce' }
+	]);
+
+	const { atlassianEmail } = await inquirer.prompt([
+		{ name: 'atlassianEmail', type: 'input', message: 'Your Atlassian email:', default: prefs.atlassian.email }
+	]);
+
+	console.log('Your browser will be opened in 3 seconds');
+	console.log('Please create an Atlasian API-Token');
+
+	setTimeout(() => {
+		open(`https://id.atlassian.com/manage-profile/security/api-tokens`);
+	}, 3000)
+
+	const { atlassianApiToken } = await inquirer.prompt([
+		{ name: 'atlassianApiToken', type: (prefs.atlassian.apiToken ? 'password' : 'input'), message: 'Your Atlassian API-Token:', default: prefs.atlassian.apiToken }
 	]);
 
 	console.log('Your browser will be opened in 3 seconds');
@@ -148,6 +163,8 @@ module.exports.init = async() => {
 	]);
 
 	prefs.atlassian.domain = domain;
+	prefs.atlassian.email = atlassianEmail;
+	prefs.atlassian.apiToken = atlassianApiToken;
 	prefs.tempo.token = tempoToken;
 	prefs.tempo.workderId = atlassianAccountId;
 	prefs.tempo.requiredAttributes = requiredAttributes;
@@ -155,6 +172,9 @@ module.exports.init = async() => {
 	prefs.toggl.from = from;
 	prefs.toggl.email = email;
 	prefs.toggl.workSpaceId = togglWorkSpace;
+
+	if(prefs.atlassian.email && prefs.atlassian.apiToken)
+		prefs.atlassian.auth = btoa(`${prefs.atlassian.email}:${prefs.atlassian.apiToken}`)
 
 	if(togglDefaultTag)
 		prefs.toggl.defaultTag = togglDefaultTag;

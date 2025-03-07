@@ -1,5 +1,9 @@
 const axios = require('axios').default;
 
+const { getIssue } = require('./atlassian');
+
+let issueCache = {};
+
 const report = {
 	success: 0,
 	error: 0,
@@ -15,7 +19,7 @@ const totals = {
 
 module.exports.getRequiredWorkAttributes = async tempoToken => {
 
-	const url = 'https://api.tempo.io/core/3/work-attributes/'
+	const url = 'https://api.tempo.io/4/work-attributes/'
 
 	const res = await axios.get(url, {
 		headers: {
@@ -41,7 +45,7 @@ module.exports.getRequiredWorkAttributes = async tempoToken => {
 
 const getServiceReport = async(account, from, to) => {
 
-	const url = `https://api.tempo.io/core/3/worklogs/user/${account.workderId}`
+	const url = `https://api.tempo.io/4/worklogs/user/${account.workderId}`
 
 	const res = await axios.get(url, {
 		headers: {
@@ -62,9 +66,13 @@ const getServiceReport = async(account, from, to) => {
 		if(!accum[data.startDate])
 			accum[data.startDate] = {};
 
-		accum[data.startDate][`${data.issue.key} ${data.description}`] = {
+		if(!accum[data.startDate][data.issue.id])
+			accum[data.startDate][data.issue.id] = {};
+
+		accum[data.startDate][data.issue.id][data.description] = {
 			id: data.tempoWorklogId,
 			time: data.timeSpentSeconds,
+			issueId: data.issue.id,
 			...data.attributes?.values?.length && {
 				attributes: data.attributes.values.reduce((accum, attr) => {
 					accum[attr.key] = attr;
@@ -82,7 +90,7 @@ const secondsToHs = seconds => (seconds / 60 / 60);
 const publishWorklog = async(tempo, worklog, tempoWorklog) => {
 
 	const body = {
-		issueKey: worklog.ticket,
+		issueId: worklog.issueId,
 		timeSpentSeconds: worklog.time,
 		startDate: worklog.date,
 		startTime: worklog.hour,
@@ -91,7 +99,7 @@ const publishWorklog = async(tempo, worklog, tempoWorklog) => {
 		...(tempo.requiredAttributes || worklog.attributes || tempoWorklog.attributes) && { attributes: Object.values(worklog.attributes || tempoWorklog.attributes) }
 	};
 
-	const url = `https://api.tempo.io/core/3/worklogs/${worklog.id || ''}`;
+	const url = `https://api.tempo.io/4/worklogs/${worklog.id || ''}`;
 	const method = worklog.id ? 'put' : 'post';
 
 	try {
@@ -127,7 +135,26 @@ const publishWorklog = async(tempo, worklog, tempoWorklog) => {
 	}
 };
 
-module.exports.sendTimesSheets = async(timesSheets, { tempo, report: { from, to }, toggl: { defaultTag} }) => {
+const getIssueFromAtlasian = async(atlassianCredentials, ticket) => {
+
+	if(issueCache[ticket])
+		return issueCache[ticket];
+
+	const issue = await getIssue(atlassianCredentials, ticket);
+
+	if(issue) {
+		issueCache[ticket] = issue
+			? {
+				id: issue.id,
+				key: issue.key
+			}
+			: {};
+	}
+
+	return issueCache[ticket];
+}
+
+module.exports.sendTimesSheets = async(timesSheets, { tempo, report: { from, to }, toggl: { defaultTag}, atlassian: atlassianCredentials }) => {
 
 	if(!Object.keys(timesSheets))
 		return;
@@ -153,7 +180,17 @@ module.exports.sendTimesSheets = async(timesSheets, { tempo, report: { from, to 
 				continue;
 			}
 
-			const tempoWorklog = tempoReport[worklog.date]?.[worklog.rawDescription];
+			const issue = await getIssueFromAtlasian(atlassianCredentials, worklog.ticket);
+
+			if(!issue.id) {
+				totals.ommited += worklog.time;
+				console.log(`Omitted (The ticket does not exist): ${worklog.description} | ${secondsToHs(worklog.time)} Hs`)
+				continue;
+			}
+
+			worklog.issueId = issue.id;
+
+			const tempoWorklog = tempoReport[worklog.date]?.[issue.id]?.[worklog.description];
 
 			if(tempoWorklog) {
 
@@ -210,6 +247,8 @@ module.exports.sendTimesSheets = async(timesSheets, { tempo, report: { from, to 
 		console.log('----------------------------')
 		console.log('')
 	}
+
+	issueCache = null;
 
 	console.log(`success: ${secondsToHs(totals.success)} Hs`);
 	console.log(`ommited: ${secondsToHs(totals.ommited)} Hs`);
