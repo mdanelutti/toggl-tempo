@@ -173,9 +173,6 @@ module.exports.init = async() => {
 	prefs.toggl.email = email;
 	prefs.toggl.workSpaceId = togglWorkSpace;
 
-	if(prefs.atlassian.email && prefs.atlassian.apiToken)
-		prefs.atlassian.auth = btoa(`${prefs.atlassian.email}:${prefs.atlassian.apiToken}`)
-
 	if(togglDefaultTag)
 		prefs.toggl.defaultTag = togglDefaultTag;
 
